@@ -66,7 +66,7 @@ def ts_query_tokens(query: str) -> List[str]:
     """
     query = _filter(query).lower()
 
-    tokens = []
+    tokens: List[str] = []
     phrase_state = PhraseState()
 
     for token in _tokenize(query):
@@ -78,11 +78,17 @@ def ts_query_tokens(query: str) -> List[str]:
             if len(tokens) > 0 and tokens[-1] == FOL_OP:
                 tokens.pop()
 
-            tokens.append(phrase_state.current_paren)
+            paren = phrase_state.current_paren
+            tokens.append(paren)
             phrase_state.invert()
+            # Only add operator after closing parenthesis
+            if paren == ")":
+                tokens.append(phrase_state.current_op)
         elif token == "-":
             tokens.append(NOT_OP)
         elif token == "or":
+            if len(tokens) > 0 and tokens[-1] == AND_OP:
+                tokens.pop()
             tokens.append(OR_OP)
         elif token == "*":
             tokens[-2] = f"{tokens[-2]}:*"
@@ -131,17 +137,19 @@ def _tokenize(query: str) -> Iterator[str]:
 
 class PhraseState:
     def __init__(self):
-        self.current_op = AND_OP
-        self.other_op = FOL_OP
-        self.current_paren = "("
-        self.next_paren = ")"
+        self._current_op: str = AND_OP
+        self._other_op: str = FOL_OP
+        self._current_paren: str = "("
+        self._next_paren: str = ")"
 
     def invert(self) -> None:
-        self.current_op, self.other_op = self.other_op, self.current_op
-        self.current_paren, self.next_paren = self.next_paren, self.current_paren
+        self._current_op, self._other_op = self._other_op, self._current_op
+        self._current_paren, self._next_paren = self._next_paren, self._current_paren
 
+    @property
     def current_op(self) -> str:
-        return self.current_op
+        return self._current_op
 
+    @property
     def current_paren(self) -> str:
-        return self.current_paren
+        return self._current_paren
